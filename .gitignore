@@ -1,0 +1,27 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.idea/
+.vscode/
+
+# Node / build tooling (build OUTPUT under amd/build is committed on purpose)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Logs and local test artifacts
+*.log
+.playwright-mcp/
+
+# Coverage report output (tools/coverage.sh writes here, at the plugin root).
+# Anchored with a leading slash so it does NOT also match the committed amd/build/.
+/build/
+
+# AI assistant / local dev scaffolding — not part of the published plugin.
+# Remove this line if you intend to version your project setup.
+.claude/
+
+# Internal design docs — kept local, not shipped (binary, not part of the plugin).
+docs/
