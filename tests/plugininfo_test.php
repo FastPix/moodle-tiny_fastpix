@@ -43,7 +43,7 @@ final class plugininfo_test extends \advanced_testcase {
 
         $this->assertFalse(plugininfo::is_enabled($context, [], []));
         $this->assertFalse(
-            plugininfo::get_plugin_configuration_for_context($context, [], [])['canupload']
+            plugininfo::get_plugin_configuration_for_context($context, [], [])['canembed']
         );
     }
 
@@ -60,7 +60,7 @@ final class plugininfo_test extends \advanced_testcase {
 
         $this->assertTrue(plugininfo::is_enabled($context, [], []));
         $this->assertTrue(
-            plugininfo::get_plugin_configuration_for_context($context, [], [])['canupload']
+            plugininfo::get_plugin_configuration_for_context($context, [], [])['canembed']
         );
     }
 }

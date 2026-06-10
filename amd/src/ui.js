@@ -14,8 +14,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Tiny FastPix UI — opens the picker, lists the author's videos and inserts the
- * {fastpix:pb_<id>} shortcode for the chosen one.
+ * Tiny FastPix UI — opens the picker, lists this course's videos the author
+ * uploaded and inserts the {fastpix:pb_<id>} shortcode for the chosen one.
  *
  * @module      tiny_fastpix/ui
  * @copyright   2026 FastPix Inc. <support@fastpix.io>
@@ -30,12 +30,6 @@ import {getContextId} from './options';
 import FastpixModal from './modal';
 
 const listRegionSelector = '[data-region="fastpix-video-list"]';
-const searchSelector = '[data-region="fastpix-search"]';
-
-// Wait for a pause in typing before hitting the web service, and ignore very
-// short terms (a single letter would match almost everything).
-const searchDebounceMs = 300;
-const searchMinChars = 2;
 
 /**
  * Open the picker for the current editor.
@@ -47,31 +41,16 @@ export const handleAction = (editor) => {
 };
 
 /**
- * Fetch the current user's embeddable videos via the web service.
+ * Fetch the videos this course holds for the current user via the web service.
+ * The server derives the course from the context, so only the context is sent.
  *
  * @param {number} contextid
- * @param {string} query Optional search term; empty returns the recent list.
  * @returns {Promise<Array<{playbackid: string, title: string}>>}
  */
-const fetchVideos = (contextid, query = '') => fetchMany([{
+const fetchVideos = (contextid) => fetchMany([{
     methodname: 'tiny_fastpix_get_my_videos',
-    args: {contextid, query},
+    args: {contextid},
 }])[0].then((result) => result.videos);
-
-/**
- * Debounce a function: only run it after `delay` ms pass without a new call.
- *
- * @param {Function} fn
- * @param {number} delay
- * @returns {Function}
- */
-const debounce = (fn, delay) => {
-    let timer;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), delay);
-    };
-};
 
 /**
  * Insert the shortcode for the chosen video and close the modal.
@@ -106,43 +85,9 @@ const displayDialogue = async(editor) => {
 
     const root = modal.getRoot()[0];
     const region = root.querySelector(listRegionSelector);
-    const search = root.querySelector(searchSelector);
 
-    // Tracks the most recent query so an out-of-order web service response (a
-    // slow early request landing after a later one) can't overwrite the list.
-    let currentQuery = '';
-
-    const renderList = async(query) => {
-        currentQuery = query;
-
-        let videos;
-        try {
-            videos = await fetchVideos(contextid, query);
-        } catch (error) {
-            if (currentQuery !== query) {
-                return;
-            }
-            const message = await getString('loaderror', component);
-            region.textContent = message;
-            return;
-        }
-        if (currentQuery !== query) {
-            return;
-        }
-
-        const {html, js} = await renderForPromise(`${component}/videos`, {
-            videos,
-            hasvideos: videos.length > 0,
-            issearch: query !== '',
-        });
-        if (currentQuery !== query) {
-            return;
-        }
-        replaceNodeContents(region, html, js);
-    };
-
-    // The list region persists across re-renders, so one delegated click
-    // listener covers every (re)rendered card.
+    // The list region persists, so one delegated click listener covers every
+    // rendered card.
     region.addEventListener('click', (e) => {
         const choice = e.target.closest('[data-playbackid]');
         if (!choice) {
@@ -152,14 +97,18 @@ const displayDialogue = async(editor) => {
         insertShortcode(editor, modal, bookmark, choice.dataset.playbackid);
     });
 
-    if (search) {
-        search.addEventListener('input', debounce(() => {
-            const term = search.value.trim();
-            // Below the minimum length, fall back to the recent list.
-            renderList(term.length >= searchMinChars ? term : '');
-        }, searchDebounceMs));
+    let videos;
+    try {
+        videos = await fetchVideos(contextid);
+    } catch (error) {
+        const message = await getString('loaderror', component);
+        region.textContent = message;
+        return;
     }
 
-    // Initial load: the most recent videos.
-    await renderList('');
+    const {html, js} = await renderForPromise(`${component}/videos`, {
+        videos,
+        hasvideos: videos.length > 0,
+    });
+    replaceNodeContents(region, html, js);
 };

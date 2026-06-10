@@ -100,9 +100,12 @@ class plugininfo extends plugin implements plugin_with_buttons, plugin_with_conf
         array $fpoptions,
         ?\editor_tiny\editor $editor = null
     ): array {
+        $coursecontext = $context->get_course_context(false);
+
         return [
             'contextid'  => $context->id,
-            'canupload'  => has_capability('mod/fastpix:uploadmedia', $context),
+            'courseid'   => $coursecontext ? $coursecontext->instanceid : 0,
+            'canembed'   => has_capability('mod/fastpix:uploadmedia', $context),
         ];
     }
 }

@@ -74,11 +74,12 @@ class behat_tiny_fastpix_generator extends behat_generator_base {
                 'singular'      => 'asset',
                 'datagenerator' => 'asset',
                 'required'      => ['playback_id', 'user'],
-                // The 'user' column (a username string) is resolved to
-                // 'owner_userid' (an integer) by behat_generator_base::get_user_id().
-                // See lib/behat/classes/behat_generator_base.php, the switchids
-                // processing loop and the get_user_id() method.
-                'switchids'     => ['user' => 'owner_userid'],
+                // The 'user' column (a username) resolves to 'owner_userid'; the
+                // optional 'course' column (a shortname) resolves to 'courseid',
+                // which makes the generator link the asset to a mod_fastpix
+                // activity in that course so the course-scoped picker lists it.
+                // Resolution is the switchids mechanism in behat_generator_base.
+                'switchids'     => ['user' => 'owner_userid', 'course' => 'courseid'],
             ],
         ];
     }

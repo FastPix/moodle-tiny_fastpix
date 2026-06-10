@@ -3,6 +3,23 @@
 All notable changes to **tiny_fastpix** (FastPix video for TinyMCE) are documented
 here. This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.1.0 — 2026-06-10
+
+### Changed
+- **Course-scoped picker.** The picker now lists only the signed-in user's own
+  videos that belong to the **current course** (referenced by a FastPix activity
+  in it) — previously it listed the user's videos across all courses. The listing
+  stays owner-scoped, ready-only and embeddable-only (public, non-DRM).
+- **Course-context capability gating.** `mod/fastpix:uploadmedia` is now resolved
+  at the editor's **course context**, both for showing the toolbar button
+  (`plugininfo`) and in the `get_my_videos` web service. Students (no capability)
+  get no button and a rejected service call; they can still **watch** embeds via
+  `filter_fastpix` (`mod/fastpix:view`).
+
+### Removed
+- **Whole-library search.** With the list scoped to a single course it is no
+  longer needed; the `query` parameter and the modal search box are gone.
+
 ## 1.0.0 — 2026-06-05
 
 First stable release.
