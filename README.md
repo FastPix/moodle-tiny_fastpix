@@ -16,8 +16,7 @@ you already have.
 1. A teacher opens any TinyMCE editor — a forum post, a Page, a Book chapter, a
    label.
 2. They click **Insert FastPix video** (or **Insert → FastPix video**).
-3. A dialog shows *their* videos. They can scroll, or type to search the whole
-   library by name.
+3. A dialog shows *their* videos for **this course**.
 4. They click one. `{fastpix:pb_<id>}` appears at the cursor.
 
 When someone later reads that content, `filter_fastpix` swaps the short code for a
@@ -42,12 +41,10 @@ actually play:
 | Rule | Why |
 | --- | --- |
 | **Your videos only** | The dialog is scoped to the signed-in user — you never see another teacher's library. |
+| **This course only** | Only videos uploaded through a FastPix activity *in the current course* are listed, so a course's editors see just that course's media. |
 | **Ready only** | Videos still uploading or processing are hidden until FastPix finishes them. |
 | **Playable only** | DRM-protected videos are left out — `filter_fastpix` can't embed them, so offering them would only insert a dead short code. |
 | **Named, not numbered** | Each result shows the video's activity name (falling back to *Untitled video*), not a raw UUID. |
-
-Searching looks across your whole library by activity name and title, so a big
-collection is still one keystroke away — not just the most recent handful.
 
 ## Setting it up
 
@@ -82,7 +79,7 @@ capability to manage:
 
 | Capability | Effect | Owned by |
 | --- | --- | --- |
-| `mod/fastpix:uploadmedia` | Holders see the toolbar button and can list their own videos; everyone else gets no button at all. | `mod_fastpix` |
+| `mod/fastpix:uploadmedia` | Checked at the **course context**: holders see the toolbar button and can list their own videos in that course; everyone else gets no button at all. | `mod_fastpix` |
 
 ## Good to know
 
@@ -91,7 +88,8 @@ capability to manage:
   them, so content written elsewhere (or by hand) still plays.
 - **No uploading here.** New videos come in through a `mod_fastpix` activity and
   surface in the picker once they're ready. An upload tab is on the roadmap.
-- A video only appears for the teacher recorded as its owner.
+- A video only appears for the teacher recorded as its owner, and only in the
+  course it was uploaded to.
 
 ## Privacy
 

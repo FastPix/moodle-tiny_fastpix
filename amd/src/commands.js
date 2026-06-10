@@ -24,7 +24,7 @@
 import {getButtonImage} from 'editor_tiny/utils';
 import {getString} from 'core/str';
 import {component, buttonName, icon} from './common';
-import {canUpload} from './options';
+import {canEmbed} from './options';
 import {handleAction} from './ui';
 
 export const getSetup = async() => {
@@ -37,7 +37,7 @@ export const getSetup = async() => {
     ]);
 
     return (editor) => {
-        if (!canUpload(editor)) {
+        if (!canEmbed(editor)) {
             return;
         }
 

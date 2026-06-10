@@ -24,6 +24,11 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 /**
  * Tests for the tiny_fastpix_get_my_videos web service.
  *
+ * The picker lists ONLY videos that (a) the caller owns, (b) belong to the
+ * editor's course (referenced by a mod_fastpix activity in it), (c) are ready
+ * and (d) are embeddable (public + has a playback id). These tests lock each
+ * facet, with the owner-scope and course-scope cases as the P0 security floor.
+ *
  * @package    tiny_fastpix
  * @copyright  2026 FastPix Inc. <support@fastpix.io>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -31,38 +36,13 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class get_my_videos_test extends \externallib_advanced_testcase {
     /**
-     * Insert an asset row into local_fastpix_asset.
+     * Insert an asset and return it, including the generated id and fastpix_id
+     * (needed to link mod_fastpix activities).
      *
      * @param array $overrides Column overrides; owner_userid + playback_id matter.
-     * @return void
-     */
-    private function make_asset(array $overrides): void {
-        global $DB;
-        $now = time();
-        $DB->insert_record('local_fastpix_asset', (object)array_merge([
-            'fastpix_id'           => 'fp' . random_string(10),
-            'playback_id'          => 'play' . random_string(8),
-            'owner_userid'         => 0,
-            'title'                => 'Untitled',
-            'status'               => 'ready',
-            'access_policy'        => 'public',
-            'drm_required'         => 0,
-            'no_skip_required'     => 0,
-            'has_captions'         => 0,
-            'gdpr_delete_attempts' => 0,
-            'timecreated'          => $now,
-            'timemodified'         => $now,
-        ], $overrides));
-    }
-
-    /**
-     * Insert an asset and return it, including the generated id and fastpix_id
-     * (needed to link mod_fastpix activities for the name-search tests).
-     *
-     * @param array $overrides Column overrides.
      * @return \stdClass The inserted asset (with ->id and ->fastpix_id set).
      */
-    private function make_asset_linked(array $overrides): \stdClass {
+    private function make_asset(array $overrides): \stdClass {
         global $DB;
         $now = time();
         $record = (object)array_merge([
@@ -84,8 +64,8 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * Insert a mod_fastpix activity row carrying the author-typed name. Only the
-     * fields the name search reads are populated.
+     * Insert a mod_fastpix activity row carrying the author-typed name and the
+     * link columns the resolver reads.
      *
      * @param int $courseid The course the activity lives in.
      * @param string $name The author-typed activity name.
@@ -146,53 +126,136 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * Run the web service with a search term and clean the return value.
+     * Run the web service and clean the return value.
      *
      * @param \context $context The editor context.
-     * @param string $query The search term.
      * @return array The cleaned result.
      */
-    private function run_search(\context $context, string $query): array {
-        $result = get_my_videos::execute($context->id, $query);
+    private function list_videos(\context $context): array {
+        $result = get_my_videos::execute($context->id);
         return \core_external\external_api::clean_returnvalue(get_my_videos::execute_returns(), $result);
     }
 
     /**
-     * The service returns only the caller's own ready, non-DRM, embeddable videos.
+     * The happy path: an owned, ready, public video linked to an activity in the
+     * editor's course is listed, labelled with the activity name.
      */
-    public function test_returns_only_own_embeddable_videos(): void {
+    public function test_lists_owned_ready_public_video_in_course(): void {
         $this->resetAfterTest();
-        $course = $this->getDataGenerator()->create_course();
-        $context = \context_course::instance($course->id);
-        $teacher = $this->getDataGenerator()->create_user();
-        $other = $this->getDataGenerator()->create_user();
-        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
+        [$context, $teacher, $course] = $this->teacher_in_course();
         $this->setUser($teacher);
 
-        // Should appear: own, ready, public, has playback id.
-        $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'keepme01', 'title' => 'Keep me']);
-        // Excluded: DRM-required (filter can't play it).
-        $this->make_asset([
-            'owner_userid' => $teacher->id, 'playback_id' => 'drmone01',
-            'drm_required' => 1, 'access_policy' => 'drm',
-        ]);
-        // Excluded: not ready yet.
-        $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'prep0001', 'status' => 'preparing']);
-        // Excluded: no playback id.
-        $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => null]);
-        // Excluded: belongs to another user.
-        $this->make_asset(['owner_userid' => $other->id, 'playback_id' => 'other001']);
+        $asset = $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'keepme01', 'title' => 'zzz']);
+        $this->make_activity($course->id, 'Photosynthesis lecture', ['fastpix_asset_id' => $asset->id]);
 
-        $result = get_my_videos::execute($context->id);
-        $result = \core_external\external_api::clean_returnvalue(get_my_videos::execute_returns(), $result);
+        $result = $this->list_videos($context);
 
         $this->assertCount(1, $result['videos']);
         $this->assertSame('keepme01', $result['videos'][0]['playbackid']);
-        $this->assertSame('Keep me', $result['videos'][0]['title']);
+        $this->assertSame('Photosynthesis lecture', $result['videos'][0]['title']);
     }
 
     /**
-     * A user without mod/fastpix:uploadmedia is refused.
+     * The activity may link to the asset only through its upload session (the
+     * direct fastpix_asset_id was never set); the video must still be listed.
+     */
+    public function test_resolves_asset_via_upload_session(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $asset = $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'sess0001', 'title' => 'zzz']);
+        $sessionid = $this->make_upload_session($asset->fastpix_id, $teacher->id);
+        $this->make_activity($course->id, 'Mitosis recap', ['upload_session_id' => $sessionid]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(1, $result['videos']);
+        $this->assertSame('sess0001', $result['videos'][0]['playbackid']);
+        $this->assertSame('Mitosis recap', $result['videos'][0]['title']);
+    }
+
+    /**
+     * Owner scope (P0): a video owned by another user, even when its activity is
+     * in this course, must never appear.
+     */
+    public function test_excludes_video_owned_by_other_user(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $other = $this->getDataGenerator()->create_user();
+        $this->setUser($teacher);
+
+        $otherasset = $this->make_asset(['owner_userid' => $other->id, 'playback_id' => 'leak0001', 'title' => 'zzz']);
+        $this->make_activity($course->id, 'Confidential briefing', ['fastpix_asset_id' => $otherasset->id]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(0, $result['videos']);
+    }
+
+    /**
+     * Course scope (P0): the caller's own video linked to an activity in a
+     * different course must not appear in this course's picker.
+     */
+    public function test_excludes_video_in_other_course(): void {
+        $this->resetAfterTest();
+        [$context, $teacher] = $this->teacher_in_course();
+        $othercourse = $this->getDataGenerator()->create_course();
+        $this->setUser($teacher);
+
+        $asset = $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'elsew001', 'title' => 'zzz']);
+        $this->make_activity($othercourse->id, 'Lecture in another course', ['fastpix_asset_id' => $asset->id]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(0, $result['videos']);
+    }
+
+    /**
+     * An owned, ready, public video that is not referenced by any activity in
+     * the course is out of scope (course membership comes from the activity).
+     */
+    public function test_excludes_video_with_no_activity(): void {
+        $this->resetAfterTest();
+        [$context, $teacher] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'noact001', 'title' => 'Orphan']);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(0, $result['videos']);
+    }
+
+    /**
+     * Non-ready, DRM/non-public, and playback-less assets are all excluded even
+     * when correctly owned and linked in the course.
+     */
+    public function test_excludes_unembeddable_states(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $notready = $this->make_asset([
+            'owner_userid' => $teacher->id, 'playback_id' => 'prep0001', 'status' => 'preparing',
+        ]);
+        $drm = $this->make_asset([
+            'owner_userid' => $teacher->id, 'playback_id' => 'drmone01',
+            'drm_required' => 1, 'access_policy' => 'drm',
+        ]);
+        $noplayback = $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => null]);
+
+        $this->make_activity($course->id, 'Not ready', ['fastpix_asset_id' => $notready->id]);
+        $this->make_activity($course->id, 'DRM', ['fastpix_asset_id' => $drm->id]);
+        $this->make_activity($course->id, 'No playback', ['fastpix_asset_id' => $noplayback->id]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(0, $result['videos']);
+    }
+
+    /**
+     * A user without mod/fastpix:uploadmedia in the course is refused.
      */
     public function test_requires_uploadmedia_capability(): void {
         $this->resetAfterTest();
@@ -207,95 +270,15 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * Search matches the asset title.
+     * Outside a course (e.g. a user context) there is nothing in scope, so the
+     * service returns an empty list rather than leaking anything.
      */
-    public function test_search_matches_asset_title(): void {
+    public function test_non_course_context_returns_empty(): void {
         $this->resetAfterTest();
-        [$context, $teacher] = $this->teacher_in_course();
-        $this->setUser($teacher);
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
 
-        $this->make_asset_linked(['owner_userid' => $teacher->id, 'playback_id' => 'titlem01', 'title' => 'Annual report 2026']);
-        $this->make_asset_linked(['owner_userid' => $teacher->id, 'playback_id' => 'titlem02', 'title' => 'Holiday party']);
-
-        $result = $this->run_search($context, 'annual');
-
-        $this->assertCount(1, $result['videos']);
-        $this->assertSame('titlem01', $result['videos'][0]['playbackid']);
-    }
-
-    /**
-     * Search matches the mod_fastpix activity name via the direct asset link,
-     * even when the asset title itself does not contain the term.
-     */
-    public function test_search_matches_activity_name_direct(): void {
-        $this->resetAfterTest();
-        [$context, $teacher, $course] = $this->teacher_in_course();
-        $this->setUser($teacher);
-
-        $asset = $this->make_asset_linked([
-            'owner_userid' => $teacher->id, 'playback_id' => 'namedir1', 'title' => 'zzz',
-        ]);
-        $this->make_activity($course->id, 'Photosynthesis lecture', ['fastpix_asset_id' => $asset->id]);
-
-        $result = $this->run_search($context, 'photosynthesis');
-
-        $this->assertCount(1, $result['videos']);
-        $this->assertSame('namedir1', $result['videos'][0]['playbackid']);
-        $this->assertSame('Photosynthesis lecture', $result['videos'][0]['title']);
-    }
-
-    /**
-     * Search matches the activity name reached only through the upload session
-     * (the direct fastpix_asset_id link was never set).
-     */
-    public function test_search_matches_activity_name_via_upload_session(): void {
-        $this->resetAfterTest();
-        [$context, $teacher, $course] = $this->teacher_in_course();
-        $this->setUser($teacher);
-
-        $asset = $this->make_asset_linked([
-            'owner_userid' => $teacher->id, 'playback_id' => 'namesess', 'title' => 'zzz',
-        ]);
-        $sessionid = $this->make_upload_session($asset->fastpix_id, $teacher->id);
-        $this->make_activity($course->id, 'Mitosis recap', ['upload_session_id' => $sessionid]);
-
-        $result = $this->run_search($context, 'mitosis');
-
-        $this->assertCount(1, $result['videos']);
-        $this->assertSame('namesess', $result['videos'][0]['playbackid']);
-        $this->assertSame('Mitosis recap', $result['videos'][0]['title']);
-    }
-
-    /**
-     * Search is owner-scoped: another user's asset must never surface, even when
-     * its activity name matches the search term. (P0 security invariant.)
-     */
-    public function test_search_is_owner_scoped(): void {
-        $this->resetAfterTest();
-        [$context, $teacher, $course] = $this->teacher_in_course();
-        $other = $this->getDataGenerator()->create_user();
-        $this->setUser($teacher);
-
-        $otherasset = $this->make_asset_linked([
-            'owner_userid' => $other->id, 'playback_id' => 'leak0001', 'title' => 'zzz',
-        ]);
-        $this->make_activity($course->id, 'Confidential briefing', ['fastpix_asset_id' => $otherasset->id]);
-
-        $result = $this->run_search($context, 'confidential');
-
-        $this->assertCount(0, $result['videos']);
-    }
-
-    /**
-     * A search term that matches nothing returns an empty list.
-     */
-    public function test_search_no_match_returns_empty(): void {
-        $this->resetAfterTest();
-        [$context, $teacher] = $this->teacher_in_course();
-        $this->setUser($teacher);
-        $this->make_asset_linked(['owner_userid' => $teacher->id, 'playback_id' => 'present1', 'title' => 'Welcome video']);
-
-        $result = $this->run_search($context, 'nonexistentterm');
+        $result = $this->list_videos(\context_user::instance($user->id));
 
         $this->assertCount(0, $result['videos']);
     }

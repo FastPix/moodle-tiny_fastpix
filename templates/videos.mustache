@@ -24,13 +24,10 @@
     Context variables required for this template:
     * hasvideos - bool, whether the videos array is non-empty.
     * videos - array of { playbackid, title }.
-    * issearch - bool, whether this list is the result of a search (changes the
-      empty-state message from "no videos" to "no results").
 
     Example context (json):
     {
         "hasvideos": true,
-        "issearch": false,
         "videos": [
             { "playbackid": "abc123", "title": "Welcome video" }
         ]
@@ -51,7 +48,6 @@
 {{/hasvideos}}
 {{^hasvideos}}
     <div role="status" class="alert alert-info m-3">
-        {{#issearch}}{{#str}} noresults, tiny_fastpix {{/str}}{{/issearch}}
-        {{^issearch}}{{#str}} novideos, tiny_fastpix {{/str}}{{/issearch}}
+        {{#str}} novideos, tiny_fastpix {{/str}}
     </div>
 {{/hasvideos}}

@@ -85,6 +85,14 @@ class tiny_fastpix_generator extends testing_data_generator {
             );
         }
 
+        // The picker is course-scoped: an asset only appears when a mod_fastpix
+        // activity in that course references it. The optional 'course' column
+        // (resolved to 'courseid' via switchids) creates that link. Pulled out
+        // before the asset insert — it is not a local_fastpix_asset column.
+        $courseid = (int)($record['courseid'] ?? 0);
+        $title = $record['title'] ?? null;
+        unset($record['courseid']);
+
         $now = time();
 
         // Apply defaults for every NOT-NULL column that has no schema default
@@ -108,6 +116,44 @@ class tiny_fastpix_generator extends testing_data_generator {
             }
         }
 
-        return $DB->insert_record('local_fastpix_asset', (object) $record);
+        $assetid = $DB->insert_record('local_fastpix_asset', (object) $record);
+
+        if ($courseid > 0) {
+            $this->link_course_activity($courseid, $assetid, (string)($title ?? $record['title']));
+        }
+
+        return $assetid;
+    }
+
+    /**
+     * Insert a minimal mod_fastpix activity row in a course that references the
+     * asset, so the course-scoped picker (get_my_videos) finds it.
+     *
+     * Only the columns the picker reads ({fastpix}.course, .name,
+     * .fastpix_asset_id) plus the table's NOT-NULL fields are populated — the
+     * web service queries this table directly and does not need a course module.
+     *
+     * @param int $courseid The course the activity (and so the video) belongs to.
+     * @param int $assetid The local_fastpix_asset id to reference.
+     * @param string $name The activity name used as the picker label.
+     * @return void
+     */
+    private function link_course_activity(int $courseid, int $assetid, string $name): void {
+        global $DB;
+        $now = time();
+        $DB->insert_record('fastpix', (object)[
+            'course'                   => $courseid,
+            'name'                     => $name,
+            'intro'                    => '',
+            'introformat'              => FORMAT_HTML,
+            'fastpix_asset_id'         => $assetid,
+            'upload_session_id'        => null,
+            'completion_watch_percent' => 0,
+            'no_skip_required'         => 0,
+            'default_show_captions'    => 0,
+            'grademax'                 => 0,
+            'timecreated'              => $now,
+            'timemodified'             => $now,
+        ]);
     }
 }

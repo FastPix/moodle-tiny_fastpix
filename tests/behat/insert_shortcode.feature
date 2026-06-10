@@ -58,8 +58,8 @@ Feature: Insert a FastPix shortcode via the TinyMCE picker
       | activity | name      | intro     | introformat | course | content     | contentformat | idnumber |
       | page     | PageName1 | PageDesc1 | 1           | C1     | PageContent | 1             | 1        |
     And the following "tiny_fastpix > assets" exist:
-      | user     | playback_id | title      |
-      | teacher1 | keepme01    | My lecture |
+      | user     | course | playback_id | title      |
+      | teacher1 | C1     | keepme01    | My lecture |
 
   # ---------------------------------------------------------------------------
   # Capability gate — an uploading teacher sees the button; a teacher whose

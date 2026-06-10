@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'tiny_fastpix';
-$plugin->version      = 2026060500;
+$plugin->version      = 2026061010;
 $plugin->requires     = 2024100100; // Moodle 4.5 LTS.
 $plugin->maturity     = MATURITY_STABLE;
-$plugin->release      = '1.0.0';
+$plugin->release      = '1.1.0';
 $plugin->dependencies = [
     // Reuses mod/fastpix:uploadmedia (capability) and lists the author's assets
     // through local_fastpix's asset_service. Inserts the {fastpix:pb_<id>}
