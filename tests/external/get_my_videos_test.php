@@ -282,4 +282,83 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
 
         $this->assertCount(0, $result['videos']);
     }
+
+    /**
+     * A capability holder in a course who owns no ready videos gets an empty
+     * list (the owner-list short-circuit).
+     */
+    public function test_returns_empty_when_user_owns_no_videos(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        // An activity exists in the course, but it references no owned asset.
+        $this->make_activity($course->id, 'Empty activity');
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(0, $result['videos']);
+    }
+
+    /**
+     * An activity in the course that links to no asset (neither a direct asset
+     * id nor an upload session) is skipped without affecting valid results.
+     */
+    public function test_ignores_activity_with_no_asset_link(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $asset = $this->make_asset(['owner_userid' => $teacher->id, 'playback_id' => 'valid001']);
+        $this->make_activity($course->id, 'Good video', ['fastpix_asset_id' => $asset->id]);
+        // No fastpix_asset_id and no upload_session_id -> resolves to nothing.
+        $this->make_activity($course->id, 'Dangling activity');
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(1, $result['videos']);
+        $this->assertSame('valid001', $result['videos'][0]['playbackid']);
+    }
+
+    /**
+     * When the activity name is blank, the label falls back to the asset's own
+     * title (provided it is a real title, not the "Asset <id>" placeholder).
+     */
+    public function test_label_falls_back_to_asset_title(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $asset = $this->make_asset([
+            'owner_userid' => $teacher->id, 'playback_id' => 'fallbk01', 'title' => 'Real asset title',
+        ]);
+        $this->make_activity($course->id, '   ', ['fastpix_asset_id' => $asset->id]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(1, $result['videos']);
+        $this->assertSame('Real asset title', $result['videos'][0]['title']);
+    }
+
+    /**
+     * When the activity name is blank and the asset only carries the projector's
+     * "Asset <fastpix_id>" placeholder title, the label is the localised
+     * "Untitled video" rather than a raw id.
+     */
+    public function test_label_falls_back_to_untitled(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $asset = $this->make_asset([
+            'owner_userid' => $teacher->id, 'playback_id' => 'untitl01',
+            'fastpix_id'   => 'fpplaceholder', 'title' => 'Asset fpplaceholder',
+        ]);
+        $this->make_activity($course->id, '', ['fastpix_asset_id' => $asset->id]);
+
+        $result = $this->list_videos($context);
+
+        $this->assertCount(1, $result['videos']);
+        $this->assertSame(get_string('untitledvideo', 'tiny_fastpix'), $result['videos'][0]['title']);
+    }
 }
