@@ -80,9 +80,10 @@ class plugininfo extends plugin implements plugin_with_buttons, plugin_with_conf
      * @return string[]
      */
     public static function get_available_menuitems(): array {
-        return [
-            'tiny_fastpix/insertvideo',
-        ];
+        // The menu item exposes the same single "Insert FastPix Video" action as
+        // the toolbar button, so it mirrors get_available_buttons() rather than
+        // duplicating the list.
+        return self::get_available_buttons();
     }
 
     /**
