@@ -3,8 +3,7 @@
 All notable changes to **tiny_fastpix** (FastPix video for TinyMCE) are documented
 here. This project follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
-
+## 1.1.0 — 2026-06-16
 ### Added
 - **Search box in the picker.** The modal now has a search field that filters the
   listed videos by title as you type. It is a client-side filter over the
@@ -14,8 +13,6 @@ here. This project follows [Semantic Versioning](https://semver.org/).
   `\tiny_fastpix\event\shortcode_inserted` (fired when an author inserts a
   shortcode, via the new `tiny_fastpix_log_shortcode_inserted` web service).
 - **`.gitattributes`** to keep CI/dev scaffolding out of the released package.
-
-## 1.1.0 — 2026-06-10
 
 ### Changed
 - **Course-scoped picker.** The picker now lists only the signed-in user's own
