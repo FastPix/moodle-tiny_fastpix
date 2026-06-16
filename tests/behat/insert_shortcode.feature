@@ -105,3 +105,20 @@ Feature: Insert a FastPix shortcode via the TinyMCE picker
     And I press "Save and display"
     And I navigate to "Settings" in current page administration
     Then the field "Description" matches expression "/\{fastpix:pb_keepme01\}/"
+
+  # ---------------------------------------------------------------------------
+  # Search box (client-side filter). Typing in the search field narrows the
+  # listed videos by title; a non-matching video is hidden from the dialogue.
+  # ---------------------------------------------------------------------------
+  Scenario: The picker search box filters the listed videos by title
+    Given the following "tiny_fastpix > assets" exist:
+      | user     | course | playback_id | title          |
+      | teacher1 | C1     | second02    | Algebra basics |
+    And I am on the "PageName1" "page activity" page logged in as teacher1
+    And I navigate to "Settings" in current page administration
+    When I click on the "Insert FastPix video" button for the "Description" TinyMCE editor
+    Then I should see "My lecture" in the "Insert FastPix video" "dialogue"
+    And I should see "Algebra basics" in the "Insert FastPix video" "dialogue"
+    When I set the field "Search videos" to "algebra"
+    Then I should see "Algebra basics" in the "Insert FastPix video" "dialogue"
+    And I should not see "My lecture" in the "Insert FastPix video" "dialogue"

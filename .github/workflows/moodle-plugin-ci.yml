@@ -25,12 +25,27 @@ jobs:
           --health-timeout=5s
           --health-retries=3
 
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd=pg_isready
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     strategy:
       fail-fast: false
       matrix:
         php: ['8.1', '8.2', '8.3']
         moodle-branch: ['MOODLE_405_STABLE']
-        database: ['mariadb']
+        # Both engines are exercised: a PostgreSQL failure is a Plugins-directory
+        # approval blocker, so it must run in CI, not just MariaDB.
+        database: ['mariadb', 'pgsql']
 
     steps:
       - name: Check out plugin
@@ -45,6 +60,13 @@ jobs:
           extensions: mbstring, pgsql, mysqli, gd, zip, soap, intl, xmlrpc
           ini-values: max_input_vars=5000
           coverage: pcov
+
+      # Moodle 4.5's Grunt toolchain requires Node 22; needed for the grunt step
+      # (rebuilds amd/src -> amd/build and fails if the committed artifacts differ).
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Initialise moodle-plugin-ci
         run: |
@@ -130,6 +152,8 @@ jobs:
         run: moodle-plugin-ci behat --profile chrome
 
       - name: Coverage gate (overall 85% / get_my_videos 90%)
-        if: ${{ !cancelled() && matrix.php == '8.3' }}
+        # One representative job only — coverage is DB-independent, so it need
+        # not run on every (php, database) combination.
+        if: ${{ !cancelled() && matrix.php == '8.3' && matrix.database == 'mariadb' }}
         working-directory: plugin
         run: bash tools/coverage.sh

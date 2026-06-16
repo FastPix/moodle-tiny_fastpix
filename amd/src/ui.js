@@ -30,6 +30,9 @@ import {getContextId} from './options';
 import FastpixModal from './modal';
 
 const listRegionSelector = '[data-region="fastpix-video-list"]';
+const searchSelector = '[data-region="fastpix-video-search"]';
+const searchWrapSelector = '[data-region="fastpix-video-search-wrap"]';
+const noMatchesSelector = '[data-region="fastpix-video-nomatches"]';
 
 /**
  * Open the picker for the current editor.
@@ -53,18 +56,77 @@ const fetchVideos = (contextid) => fetchMany([{
 }])[0].then((result) => result.videos);
 
 /**
+ * Record that the author inserted a shortcode. Best-effort telemetry: a failure
+ * here must never block the insertion, so the rejection is swallowed.
+ *
+ * @param {number} contextid
+ * @param {string} playbackid
+ */
+const logInsertion = (contextid, playbackid) => {
+    fetchMany([{
+        methodname: 'tiny_fastpix_log_shortcode_inserted',
+        args: {contextid, playbackid},
+    }])[0].catch(() => {
+        // Logging is non-critical; ignore failures so the editor is unaffected.
+        return null;
+    });
+};
+
+/**
  * Insert the shortcode for the chosen video and close the modal.
  *
  * @param {TinyMCE} editor
  * @param {object} modal
  * @param {string} bookmark
+ * @param {number} contextid
  * @param {string} playbackid
  */
-const insertShortcode = (editor, modal, bookmark, playbackid) => {
+const insertShortcode = (editor, modal, bookmark, contextid, playbackid) => {
     editor.selection.moveToBookmark(bookmark);
     editor.execCommand('mceInsertContent', false, `{fastpix:pb_${playbackid}}`);
     editor.selection.moveToBookmark(bookmark);
+    logInsertion(contextid, playbackid);
     modal.destroy();
+};
+
+/**
+ * Wire the client-side title filter. The list is course-scoped and small, so the
+ * already-fetched cards are filtered in the browser by their title text — no
+ * extra web service call. The search box and the "no matches" notice live
+ * outside the list region so they survive the list render.
+ *
+ * @param {HTMLElement} root The modal root element.
+ * @param {HTMLElement} region The list region holding the rendered cards.
+ */
+const wireSearch = (root, region) => {
+    const search = root.querySelector(searchSelector);
+    const wrap = root.querySelector(searchWrapSelector);
+    const nomatches = root.querySelector(noMatchesSelector);
+    const cards = region.querySelectorAll('[data-playbackid]');
+
+    // With nothing to filter, leave the search box hidden — the empty-state
+    // message already explains why the list is empty.
+    if (!search || !cards.length) {
+        return;
+    }
+    if (wrap) {
+        wrap.classList.remove('d-none');
+    }
+
+    search.addEventListener('input', () => {
+        const needle = search.value.trim().toLowerCase();
+        let visible = 0;
+        cards.forEach((card) => {
+            const match = needle === '' || card.textContent.trim().toLowerCase().includes(needle);
+            card.closest('li').classList.toggle('d-none', !match);
+            if (match) {
+                visible += 1;
+            }
+        });
+        if (nomatches) {
+            nomatches.classList.toggle('d-none', !(needle !== '' && visible === 0));
+        }
+    });
 };
 
 /**
@@ -94,7 +156,7 @@ const displayDialogue = async(editor) => {
             return;
         }
         e.preventDefault();
-        insertShortcode(editor, modal, bookmark, choice.dataset.playbackid);
+        insertShortcode(editor, modal, bookmark, contextid, choice.dataset.playbackid);
     });
 
     let videos;
@@ -111,4 +173,6 @@ const displayDialogue = async(editor) => {
         hasvideos: videos.length > 0,
     });
     replaceNodeContents(region, html, js);
+
+    wireSearch(root, region);
 };

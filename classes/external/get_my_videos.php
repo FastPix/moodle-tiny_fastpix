@@ -98,6 +98,10 @@ class get_my_videos extends external_api {
 
         $context = \context::instance_by_id($params['contextid']);
         self::validate_context($context);
+        // The validate_context() call already enforces login, but the auth chain
+        // is kept explicit to match the suite-wide external-function contract:
+        // validate_parameters -> validate_context -> require_login -> capability.
+        require_login(null, false);
 
         // Course scope: the picker only lists videos belonging to the course the
         // editor lives in. Outside a course (user/system context) nothing is in
@@ -108,6 +112,10 @@ class get_my_videos extends external_api {
         }
         require_capability('mod/fastpix:uploadmedia', $coursecontext);
         $courseid = (int)$coursecontext->instanceid;
+
+        // The picker opens client-side, but this read is the server-side moment
+        // its list loads, so it is where we record the "picker opened" signal.
+        \tiny_fastpix\event\picker_opened::create_from_context($context, $courseid)->trigger();
 
         // Owner + ready scope from local_fastpix's own list method (no direct
         // local_fastpix table queries).

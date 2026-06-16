@@ -1,0 +1,12 @@
+# Development-only paths are stripped from the released package produced by
+# `git archive` (the zip the Moodle Plugins Directory builds). They are kept in
+# the repository for CI and contributors, but are not part of the shipped plugin.
+#
+# tests/ is deliberately NOT excluded: Moodle plugins ship their tests so a site
+# can run them under its own PHPUnit/Behat, matching core convention.
+/.github/         export-ignore
+/.claude/         export-ignore
+/docs/            export-ignore
+/tools/           export-ignore
+/.gitignore       export-ignore
+/.gitattributes   export-ignore
