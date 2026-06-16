@@ -310,7 +310,7 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
         // The not-logged-in user.
         $this->setUser(0);
 
-        // require_login / validate_context both raise a moodle_exception subclass.
+        // Both require_login and validate_context raise a moodle_exception subclass.
         $this->expectException(\moodle_exception::class);
         get_my_videos::execute($context->id);
     }

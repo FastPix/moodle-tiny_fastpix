@@ -98,8 +98,8 @@ class get_my_videos extends external_api {
 
         $context = \context::instance_by_id($params['contextid']);
         self::validate_context($context);
-        // validate_context() already enforces login, but the auth chain is kept
-        // explicit to match the suite-wide external-function contract:
+        // The validate_context() call already enforces login, but the auth chain
+        // is kept explicit to match the suite-wide external-function contract:
         // validate_parameters -> validate_context -> require_login -> capability.
         require_login(null, false);
 
