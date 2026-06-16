@@ -33,4 +33,12 @@ $functions = [
         'ajax'         => true,
         'capabilities' => 'mod/fastpix:uploadmedia',
     ],
+    'tiny_fastpix_log_shortcode_inserted' => [
+        'classname'    => 'tiny_fastpix\external\log_shortcode_inserted',
+        'methodname'   => 'execute',
+        'description'  => 'Record that an author inserted a FastPix shortcode from the picker.',
+        'type'         => 'write',
+        'ajax'         => true,
+        'capabilities' => 'mod/fastpix:uploadmedia',
+    ],
 ];

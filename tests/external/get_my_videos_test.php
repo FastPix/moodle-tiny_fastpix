@@ -255,6 +255,67 @@ final class get_my_videos_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * Opening the picker (calling the service) in a course fires the
+     * picker_opened event, scoped to the editor context and carrying the course.
+     */
+    public function test_picker_opened_event_fired(): void {
+        $this->resetAfterTest();
+        [$context, $teacher, $course] = $this->teacher_in_course();
+        $this->setUser($teacher);
+
+        $sink = $this->redirectEvents();
+        $this->list_videos($context);
+        $events = $sink->get_events();
+        $sink->close();
+
+        $opened = array_values(array_filter($events, static function ($e) {
+            return $e instanceof \tiny_fastpix\event\picker_opened;
+        }));
+        $this->assertCount(1, $opened);
+        $this->assertSame($context->id, $opened[0]->contextid);
+        $this->assertSame((int)$course->id, (int)$opened[0]->other['courseid']);
+        // Exercise the event's display strings (name + description).
+        $this->assertNotEmpty(\tiny_fastpix\event\picker_opened::get_name());
+        $this->assertStringContainsString((string)$course->id, $opened[0]->get_description());
+    }
+
+    /**
+     * Outside a course there is no picker_opened event (nothing is in scope).
+     */
+    public function test_picker_opened_event_not_fired_outside_course(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $sink = $this->redirectEvents();
+        $this->list_videos(\context_user::instance($user->id));
+        $events = $sink->get_events();
+        $sink->close();
+
+        $opened = array_filter($events, static function ($e) {
+            return $e instanceof \tiny_fastpix\event\picker_opened;
+        });
+        $this->assertCount(0, $opened);
+    }
+
+    /**
+     * An unauthenticated caller is rejected before any data is returned (the
+     * explicit require_login in the auth chain; also enforced by
+     * validate_context). Guards the contract against accidental removal.
+     */
+    public function test_rejects_unauthenticated_caller(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \context_course::instance($course->id);
+        // The not-logged-in user.
+        $this->setUser(0);
+
+        // require_login / validate_context both raise a moodle_exception subclass.
+        $this->expectException(\moodle_exception::class);
+        get_my_videos::execute($context->id);
+    }
+
+    /**
      * A user without mod/fastpix:uploadmedia in the course is refused.
      */
     public function test_requires_uploadmedia_capability(): void {

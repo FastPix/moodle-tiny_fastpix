@@ -61,6 +61,15 @@ Also: Moodle 4.5 LTS or newer with the TinyMCE editor, and PHP 8.1+ (tested to
 8.3). The picker itself adds no tables, holds no FastPix credentials, and pulls in
 no Composer packages.
 
+**FastPix account & credentials.** Using FastPix requires a FastPix account and a
+FastPix **API Key** (created in the FastPix Dashboard under *Settings → API Keys*;
+see [Activate your account](https://fastpix.com/docs/getting-started/activate-your-account)).
+This picker never asks for or stores the key — it is configured **once** in
+`local_fastpix` under *Site administration → Plugins → Local plugins → FastPix*,
+and every plugin in the suite (including this one) reads through `local_fastpix`
+from there. If listings aren't working, check the credentials in `local_fastpix`
+first.
+
 **Install it** the usual Moodle way — upload the ZIP under *Site administration →
 Plugins → Install plugins*, or drop the folder at
 `lib/editor/tiny/plugins/fastpix/` and finish the upgrade at *Notifications*.

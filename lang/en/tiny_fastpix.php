@@ -25,10 +25,15 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['buttontitle'] = 'Insert FastPix video';
+$string['eventpickeropened'] = 'FastPix video picker opened';
+$string['eventshortcodeinserted'] = 'FastPix video shortcode inserted';
 $string['loaderror'] = 'Could not load your videos. Please try again.';
 $string['loading'] = 'Loading your videos…';
 $string['modaltitle'] = 'Insert FastPix video';
+$string['nomatches'] = 'No videos match your search.';
 $string['novideos'] = 'This course has no ready videos you can embed yet. Upload a video in a FastPix activity in this course first.';
 $string['pluginname'] = 'FastPix video';
 $string['privacy:metadata'] = 'The FastPix video plugin for TinyMCE does not store any personal data. It lists the videos you already own and inserts a shortcode.';
+$string['searchlabel'] = 'Search videos';
+$string['searchplaceholder'] = 'Search your videos…';
 $string['untitledvideo'] = 'Untitled video';

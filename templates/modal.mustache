@@ -35,8 +35,22 @@
     {{/title}}
 
     {{$body}}
+        <div class="mb-2 d-none" data-region="fastpix-video-search-wrap">
+            <label class="sr-only" for="fastpix-video-search-{{elementid}}">
+                {{#str}} searchlabel, tiny_fastpix {{/str}}
+            </label>
+            <input type="text"
+                   id="fastpix-video-search-{{elementid}}"
+                   class="form-control"
+                   data-region="fastpix-video-search"
+                   placeholder="{{#str}} searchplaceholder, tiny_fastpix {{/str}}"
+                   autocomplete="off">
+        </div>
         <div data-region="fastpix-video-list">
             <div class="text-muted p-3">{{#str}} loading, tiny_fastpix {{/str}}</div>
+        </div>
+        <div class="alert alert-secondary m-3 d-none" role="status" data-region="fastpix-video-nomatches">
+            {{#str}} nomatches, tiny_fastpix {{/str}}
         </div>
     {{/body}}
 
